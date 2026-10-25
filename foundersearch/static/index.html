@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FounderSearch</title>
+<style>
+:root {
+  --bg:#f5f6f8; --panel:#fff; --text:#171a21; --muted:#6b7280; --line:#e6e8ec; --hover:#f9fafb;
+  --accent:#4f46e5; --accent-soft:#eef0ff; --good:#047857; --good-soft:#d1fae5; --warn:#b45309; --warn-soft:#fef3c7;
+  --bad:#b91c1c; --bad-soft:#fee2e2; --problem:#c2410c; --problem-soft:#ffedd5; --client:#1d4ed8; --client-soft:#dbeafe;
+  --yellow:#fff3bf; --yellow-hover:#ffec99; --shadow:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#0f1115; --panel:#171a21; --text:#e8eaed; --muted:#9aa0aa; --line:#272b34; --hover:#1c2028;
+    --accent:#8b8cf8; --accent-soft:#23254a; --good:#34d399; --good-soft:#0f3a2c; --warn:#fbbf24; --warn-soft:#3b2f0d;
+    --bad:#f87171; --bad-soft:#3d1717; --problem:#fb923c; --problem-soft:#3b2412; --client:#60a5fa; --client-soft:#13294d;
+    --yellow:#4a3f10; --yellow-hover:#5a4d14; --shadow:none;
+  }
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+button, input, select, textarea { font:inherit; color:inherit; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+
+header { position:sticky; top:0; z-index:20; background:var(--panel); border-bottom:1px solid var(--line); }
+.bar { max-width:1500px; margin:0 auto; padding:10px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.brand { font-weight:700; font-size:18px; letter-spacing:-.2px; }
+.brand span { color:var(--accent); }
+.spacer { flex:1; }
+.chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; cursor:pointer; }
+.chip { display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border:1px solid var(--line); border-radius:999px; font-size:12px; color:var(--muted); background:var(--panel); }
+.dot { width:8px; height:8px; border-radius:50%; background:#9ca3af; }
+.dot.ok { background:#10b981; } .dot.partial { background:#f59e0b; } .dot.failed, .dot.stale { background:#ef4444; }
+.dot.never, .dot.not_configured, .dot.disabled { background:#9ca3af; }
+.meta { color:var(--muted); font-size:12px; text-align:right; line-height:1.3; }
+.btn { border:1px solid var(--line); background:var(--panel); padding:6px 12px; border-radius:8px; cursor:pointer; box-shadow:var(--shadow); white-space:nowrap; }
+.btn:hover { background:var(--hover); }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn.primary:hover { filter:brightness(1.08); background:var(--accent); }
+.btn.small { padding:3px 9px; font-size:12.5px; border-radius:6px; box-shadow:none; }
+.btn.good { color:var(--good); } .btn.bad { color:var(--bad); }
+.btn.yellow { background:var(--yellow); border-color:#e6c200; }
+.btn:disabled { opacity:.55; cursor:default; }
+.spin { display:inline-block; width:12px; height:12px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; }
+@keyframes sp { to { transform:rotate(360deg); } }
+
+.panel-status { max-width:1500px; margin:0 auto; padding:0 20px 12px; display:none; }
+.panel-status.open { display:block; }
+.status-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:8px; }
+.status-card { border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:12.5px; background:var(--panel); }
+.status-card b { display:flex; align-items:center; gap:6px; }
+.status-card .d { color:var(--muted); margin-top:3px; word-break:break-word; }
+
+.tabs { max-width:1500px; margin:0 auto; padding:0 20px; display:flex; gap:4px; }
+.tab { padding:10px 14px; border:0; background:none; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; font-weight:500; }
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab .n { margin-left:6px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:0 7px; font-size:12px; color:var(--muted); }
+.tab.active .n { background:var(--accent-soft); color:var(--accent); border-color:transparent; }
+
+main { max-width:1500px; margin:0 auto; padding:16px 20px 60px; }
+.tools { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+.tools input[type=search], .tools select { padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+.tools input[type=search] { width:260px; }
+.tools label { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:12.5px; }
+.tools input[type=range] { width:110px; }
+.bulk { display:none; align-items:center; gap:8px; padding:6px 10px; background:var(--accent-soft); border-radius:8px; }
+.bulk.show { display:inline-flex; }
+
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow); overflow-x:auto; }
+table { width:100%; border-collapse:collapse; min-width:780px; }
+.c-title { min-width:260px; }
+th { text-align:left; font-weight:600; font-size:12px; color:var(--muted); padding:9px 10px; border-bottom:1px solid var(--line); white-space:nowrap; user-select:none; }
+th.sort { cursor:pointer; } th.sort:hover { color:var(--text); }
+td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+tr.item:hover td { background:var(--hover); }
+tr.item.flag td { background:var(--yellow); } tr.item.flag:hover td { background:var(--yellow-hover); }
+tr.detail td { background:var(--hover); border-bottom:1px solid var(--line); }
+tr.item:last-child td { border-bottom:0; }
+.c-check { width:30px; } .c-score { width:64px; } .c-type { width:84px; } .c-src { width:150px; } .c-when { width:84px; white-space:nowrap; color:var(--muted); }
+.c-why { width:24%; color:var(--muted); font-size:13px; } .c-act { width:190px; white-space:nowrap; text-align:right; position:sticky; right:0; background:var(--panel); box-shadow:-8px 0 8px -8px rgba(0,0,0,.12); }
+.title { font-weight:600; cursor:pointer; word-break:break-word; }
+.title:hover { color:var(--accent); }
+.snip { color:var(--muted); font-size:13px; margin-top:2px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; }
+.new { display:inline-block; font-size:10px; font-weight:700; background:var(--accent); color:#fff; border-radius:4px; padding:0 5px; margin-right:6px; vertical-align:1px; }
+.score { display:inline-block; min-width:36px; text-align:center; padding:2px 0; border-radius:6px; font-weight:700; font-size:13px; background:var(--bg); color:var(--muted); }
+.score.hi { background:var(--good-soft); color:var(--good); } .score.mid { background:var(--warn-soft); color:var(--warn); }
+.badge { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:600; background:var(--bg); color:var(--muted); }
+.badge.problem { background:var(--problem-soft); color:var(--problem); } .badge.client { background:var(--client-soft); color:var(--client); }
+.src b { font-weight:600; } .src div { color:var(--muted); font-size:12.5px; word-break:break-word; }
+.how { font-size:11px; border:1px solid var(--line); border-radius:4px; padding:0 4px; margin-right:5px; color:var(--muted); }
+.detail-body { display:grid; grid-template-columns:1fr 320px; gap:16px; padding:4px 4px 8px; }
+.detail-body pre { margin:0; white-space:pre-wrap; word-break:break-word; font:inherit; max-height:260px; overflow:auto; }
+.detail-body textarea { width:100%; min-height:90px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--panel); resize:vertical; }
+.detail-body .k { color:var(--muted); font-size:12px; margin-bottom:3px; }
+.empty { padding:50px 20px; text-align:center; color:var(--muted); }
+.empty h3 { color:var(--text); margin:0 0 6px; }
+.warn-banner { background:var(--bad-soft); color:var(--bad); border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13px; }
+.note-banner { background:var(--warn-soft); color:var(--warn); border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13px; }
+
+.research { display:grid; gap:8px; }
+.rlink { display:flex; align-items:center; gap:12px; padding:10px 14px; }
+.rlink + .rlink { border-top:1px solid var(--line); }
+.rlink .nm { flex:1; font-weight:500; }
+.age { font-size:12.5px; color:var(--muted); min-width:130px; text-align:right; }
+.age.old { color:var(--bad); font-weight:600; }
+.help { padding:14px; font-size:13px; color:var(--muted); }
+.help a.bm { display:inline-block; padding:5px 10px; border:1px dashed var(--accent); border-radius:8px; color:var(--accent); margin:0 4px; }
+
+dialog { border:1px solid var(--line); border-radius:12px; background:var(--panel); color:var(--text); width:min(560px,92vw); padding:18px; box-shadow:0 10px 40px rgba(0,0,0,.25); }
+dialog::backdrop { background:rgba(0,0,0,.45); }
+dialog textarea { width:100%; min-height:130px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); margin:8px 0; }
+dialog .row { display:flex; gap:8px; justify-content:flex-end; align-items:center; margin-top:6px; }
+#toasts { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; z-index:50; align-items:center; }
+.toast { background:#1f2937; color:#fff; padding:9px 14px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.3); display:flex; gap:14px; align-items:center; }
+.toast.err { background:#991b1b; }
+.toast button { background:none; border:0; color:#a5b4fc; cursor:pointer; font-weight:600; }
+@media (max-width:900px) { .detail-body { grid-template-columns:1fr; } .tools input[type=search] { width:100%; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">Founder<span>Search</span></div>
+    <div class="chips" id="chips" title="Click for details"></div>
+    <div class="spacer"></div>
+    <div class="meta" id="meta"></div>
+    <button class="btn" id="addBtn">+ Add link</button>
+    <button class="btn primary" id="refreshBtn">Refresh now</button>
+  </div>
+  <div class="panel-status" id="statusPanel"></div>
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="inbox">Inbox<span class="n" id="n-inbox">0</span></button>
+    <button class="tab" data-tab="selected">Tracking<span class="n" id="n-selected">0</span></button>
+    <button class="tab" data-tab="junk">Junk<span class="n" id="n-junk">0</span></button>
+    <button class="tab" data-tab="research">Research<span class="n" id="n-research"></span></button>
+  </div>
+</header>
+
+<main>
+  <div id="banners"></div>
+  <section id="listView">
+    <div class="tools">
+      <input type="search" id="q" placeholder="Search title, text, notes  ( / )">
+      <select id="fType"><option value="">All types</option><option value="problem">Problems</option><option value="client">Clients</option></select>
+      <select id="fSource"><option value="">All sources</option></select>
+      <label>Min score <input type="range" id="fScore" min="0" max="90" step="5" value="0"><b id="fScoreV">0</b></label>
+      <label><input type="checkbox" id="fNew"> New only</label>
+      <span class="bulk" id="bulk"><b id="bulkN">0</b> selected
+        <button class="btn small good" id="bulkMain"></button>
+        <button class="btn small bad" id="bulkSecond"></button></span>
+      <span class="spacer"></span>
+      <span class="meta" id="count"></span>
+    </div>
+    <div class="card"><table>
+      <thead><tr>
+        <th class="c-check"><input type="checkbox" id="checkAll"></th>
+        <th class="c-score sort" data-sort="score">Score <span id="s-score"></span></th>
+        <th class="c-type">Type</th>
+        <th class="c-title">Title</th>
+        <th class="c-src">Source</th>
+        <th class="c-when sort" data-sort="date">Posted <span id="s-date"></span></th>
+        <th class="c-why">Why it matched</th>
+        <th class="c-act"></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table><div id="empty"></div></div>
+  </section>
+
+  <section id="researchView" style="display:none">
+    <div class="card"><div class="help">
+      Places with no free API (Reddit search, X, G2, Capterra). Open each, skim, and send the good ones here with the
+      <b>+ Add link</b> button or the bookmarklet: drag <a class="bm" id="bm" href="#">Save to FounderSearch</a> to your bookmarks bar, then click it on any page
+      (select some text first to include it).
+    </div><div id="rlist"></div></div>
+  </section>
+</main>
+
+<dialog id="addDlg">
+  <h3 style="margin:0 0 4px">Add links</h3>
+  <div style="color:var(--muted);font-size:13px">Paste one or more URLs (Reddit, X, G2, anything). They go straight to your Inbox, even if filtered before.</div>
+  <textarea id="addText" placeholder="https://www.reddit.com/r/…&#10;https://…"></textarea>
+  <div class="row">
+    <select id="addHint"><option value="">Type: let AI decide</option><option value="problem">Problem</option><option value="client">Client</option></select>
+    <button class="btn" id="addCancel">Cancel</button>
+    <button class="btn primary" id="addOk">Add</button>
+  </div>
+</dialog>
+<div id="toasts"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = { tab: "inbox", items: [], status: null, sort: { key: "score", dir: -1 }, open: new Set(), checked: new Set(), sig: "" };
+const prevVisit = localStorage.getItem("fs_seen") || "";
+addEventListener("pagehide", () => localStorage.setItem("fs_seen", new Date().toISOString()));
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => (/^https?:\/\//i.test(u) ? u : "#");
+const SRC = { f5bot: "F5Bot", hackernews: "Hacker News", stackexchange: "Stack Exchange", github: "GitHub", manual: "Manual", rss: "RSS", reddit_api: "Reddit" };
+
+function ago(iso) {
+  if (!iso) return "";
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 90) return "just now";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  if (s < 86400) return Math.round(s / 3600) + "h ago";
+  if (s < 86400 * 30) return Math.round(s / 86400) + "d ago";
+  return new Date(iso).toLocaleDateString();
+}
+
+async function api(path, method = "GET", body) {
+  const r = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
+  return r.json();
+}
+
+function toast(msg, undo, isErr) {
+  const el = document.createElement("div");
+  el.className = "toast" + (isErr ? " err" : "");
+  el.innerHTML = `<span>${esc(msg)}</span>`;
+  if (undo) { const b = document.createElement("button"); b.textContent = "Undo"; b.onclick = async () => { el.remove(); await undo(); }; el.appendChild(b); }
+  $("#toasts").appendChild(el);
+  setTimeout(() => el.remove(), undo ? 7000 : 3500);
+}
+
+/* ---------- status / header ---------- */
+async function loadStatus() {
+  const st = await api("/api/status");
+  state.status = st;
+  for (const k of ["inbox", "selected", "junk"]) $("#n-" + k).textContent = st.counts[k] || 0;
+  const eng = st.engine;
+  $("#chips").innerHTML = st.sources.filter((s) => s.enabled).map((s) =>
+    `<span class="chip" title="${esc(s.detail)}"><span class="dot ${s.state}"></span>${esc(SRC[s.name] || s.name)}</span>`).join("");
+  const classifying = st.counts.pending ? ` · classifying ${st.counts.pending}…` : "";
+  $("#meta").innerHTML = `Last refresh: ${eng.last_finished ? ago(eng.last_finished) : "—"}${eng.last_new ? ` (+${eng.last_new} new)` : ""}${classifying}<br>Filter: ${esc(st.triage_mode)}`;
+  const btn = $("#refreshBtn");
+  btn.disabled = !!eng.running || state.refreshing;
+  btn.innerHTML = eng.running || state.refreshing ? '<span class="spin"></span>Refreshing…' : "Refresh now";
+
+  const banners = [];
+  const bad = st.sources.filter((s) => ["failed", "stale"].includes(s.state));
+  if (bad.length) banners.push(`<div class="warn-banner"><b>Data may be missing:</b> ${bad.map((s) => esc((SRC[s.name] || s.name) + " – " + s.detail)).join(" · ")}</div>`);
+  const nc = st.sources.filter((s) => s.state === "not_configured");
+  if (nc.length) banners.push(`<div class="note-banner">${nc.map((s) => esc((SRC[s.name] || s.name) + ": " + s.detail)).join(" · ")}</div>`);
+  if (st.emails.failed) banners.push(`<div class="warn-banner">${st.emails.failed} F5Bot email(s) could not be parsed. Nothing was lost; run <code>python -m foundersearch inspect-email</code>.</div>`);
+  $("#banners").innerHTML = banners.join("");
+
+  $("#statusPanel").innerHTML = `<div class="status-grid">` + st.sources.map((s) => `
+    <div class="status-card"><b><span class="dot ${s.state}"></span>${esc(SRC[s.name] || s.name)} <span style="font-weight:400;color:var(--muted)">${esc(s.state.replace("_", " "))}</span></b>
+    <div class="d">${esc(s.detail || "")}</div><div class="d">Last OK: ${s.last_ok ? ago(s.last_ok) : "never"}</div></div>`).join("") +
+    `<div class="status-card"><b>F5Bot emails</b><div class="d">${st.emails.total} stored · ${st.emails.parsed} parsed · ${st.emails.failed} failed</div></div></div>`;
+
+  const sel = $("#fSource"), cur = sel.value;
+  sel.innerHTML = '<option value="">All sources</option>' + st.all_sources.map((s) => `<option value="${esc(s)}">${esc(SRC[s] || s)}</option>`).join("");
+  sel.value = cur;
+  return st;
+}
+
+/* ---------- list ---------- */
+async function loadItems(force) {
+  if (state.tab === "research") return;
+  const data = await api(`/api/items?status=${state.tab}`);
+  const sig = state.tab + data.items.map((i) => i.id + i.flag + i.note).join("|");
+  if (!force && sig === state.sig) return;
+  if (!force && document.activeElement && document.activeElement.tagName === "TEXTAREA") return;
+  state.sig = sig;
+  state.items = data.items;
+  render();
+}
+
+function visible() {
+  const q = $("#q").value.trim().toLowerCase(), t = $("#fType").value, s = $("#fSource").value, min = +$("#fScore").value, onlyNew = $("#fNew").checked;
+  let rows = state.items.filter((i) =>
+    (!q || (i.title + " " + i.snippet + " " + i.note + " " + i.community + " " + i.reason).toLowerCase().includes(q)) &&
+    (!t || i.category === t) && (!s || i.source === s) && i.score >= min && (!onlyNew || isNew(i)));
+  const { key, dir } = state.sort;
+  rows.sort((a, b) => {
+    if (state.tab === "selected" && a.flag !== b.flag) return a.flag ? -1 : 1;
+    const d = key === "score" ? a.score - b.score || (a.published_at < b.published_at ? -1 : 1) : (a.published_at < b.published_at ? -1 : 1);
+    return d * dir;
+  });
+  return rows;
+}
+const isNew = (i) => prevVisit && i.fetched_at > prevVisit;
+
+function actions(i) {
+  if (state.tab === "inbox") return `<button class="btn small good" data-act="track" data-id="${i.id}">Track</button> <button class="btn small bad" data-act="dismiss" data-id="${i.id}">Dismiss</button>`;
+  if (state.tab === "selected") return `<button class="btn small ${i.flag ? "yellow" : ""}" data-act="flag" data-id="${i.id}" title="Mark as in progress / monitoring">${i.flag ? "● In progress" : "○ In progress"}</button> <button class="btn small bad" data-act="untrack" data-id="${i.id}" title="Back to Inbox">Remove</button>`;
+  return `<button class="btn small good" data-act="restore" data-id="${i.id}">Restore</button>`;
+}
+
+function rowHtml(i) {
+  const how = i.method === "llm" ? "AI" : i.method === "manual" ? "you" : i.method === "heuristic" ? "keywords" : "rule";
+  const sc = i.score >= 70 ? "hi" : i.score >= 50 ? "mid" : "";
+  const open = state.open.has(i.id);
+  let h = `<tr class="item ${i.flag ? "flag" : ""}" data-id="${i.id}">
+    <td class="c-check"><input type="checkbox" data-check="${i.id}" ${state.checked.has(i.id) ? "checked" : ""}></td>
+    <td class="c-score"><span class="score ${sc}">${i.score}</span></td>
+    <td class="c-type"><span class="badge ${esc(i.category)}">${esc(i.category || "—")}</span></td>
+    <td class="c-title"><div class="title" data-toggle="${i.id}">${isNew(i) ? '<span class="new">NEW</span>' : ""}${esc(i.title || i.url)}</div>
+        ${open ? "" : `<div class="snip">${esc(i.snippet)}</div>`}</td>
+    <td class="c-src src"><b>${esc(SRC[i.source] || i.source)}</b><div>${esc(i.community)}</div></td>
+    <td class="c-when" title="${esc(i.published_at)}">${ago(i.published_at)}</td>
+    <td class="c-why"><span class="how" title="Classified by">${how}</span>${esc(i.reason)}</td>
+    <td class="c-act">${actions(i)}</td></tr>`;
+  if (open) h += `<tr class="detail" data-detail="${i.id}"><td></td><td colspan="7"><div class="detail-body">
+      <div><div class="k">Original text · by ${esc(i.author || "unknown")} · matched “${esc(i.query)}”</div><pre>${esc(i.snippet || "(no text)")}</pre>
+        <p><a href="${esc(safeUrl(i.url))}" target="_blank" rel="noopener noreferrer">Open original ↗</a> <span style="color:var(--muted);font-size:12px">${esc(i.url)}</span></p></div>
+      <div><div class="k">Your notes</div><textarea data-note="${i.id}" placeholder="Next step, contact, idea…">${esc(i.note)}</textarea></div>
+    </div></td></tr>`;
+  return h;
+}
+
+function render() {
+  const rows = visible();
+  $("#rows").innerHTML = rows.map(rowHtml).join("");
+  $("#count").textContent = rows.length === state.items.length ? `${rows.length} items` : `${rows.length} of ${state.items.length}`;
+  $("#s-score").textContent = state.sort.key === "score" ? (state.sort.dir < 0 ? "▼" : "▲") : "";
+  $("#s-date").textContent = state.sort.key === "date" ? (state.sort.dir < 0 ? "▼" : "▲") : "";
+  const emptyMsg = {
+    inbox: ["Inbox is clear", "New matches appear here after each refresh. Use <b>Refresh now</b> to fetch immediately."],
+    selected: ["Nothing tracked yet", "Press <b>Track</b> on an Inbox item to follow it here. Mark it <b>In progress</b> to highlight it."],
+    junk: ["No junk", "Items the filter rejected land here, so you can check it and <b>Restore</b> anything it got wrong."],
+  }[state.tab];
+  $("#empty").innerHTML = rows.length ? "" : `<div class="empty"><h3>${state.items.length ? "No items match your filters" : emptyMsg[0]}</h3>${state.items.length ? "Clear the search or filters." : emptyMsg[1]}</div>`;
+  updateBulk();
+}
+
+function updateBulk() {
+  const n = state.checked.size;
+  $("#bulk").classList.toggle("show", n > 0);
+  $("#bulkN").textContent = n;
+  const b = { inbox: ["Track", "Dismiss"], selected: ["Remove from tracking", ""], junk: ["Restore", ""] }[state.tab];
+  $("#bulkMain").textContent = b[0]; $("#bulkSecond").textContent = b[1]; $("#bulkSecond").style.display = b[1] ? "" : "none";
+}
+
+/* ---------- actions ---------- */
+const ACT = {
+  track: { call: (id) => api(`/api/items/${id}/select`, "POST"), bulk: "select", msg: "Tracking", undoBulk: "restore" },
+  dismiss: { call: (id) => api(`/api/items/${id}/delete`, "POST"), bulk: "dismiss", msg: "Dismissed", undoBulk: "restore" },
+  untrack: { call: (id) => api(`/api/items/${id}/delete`, "POST"), bulk: "untrack", msg: "Moved back to Inbox", undoBulk: "select" },
+  restore: { call: (id) => api(`/api/items/${id}/restore`, "POST"), bulk: "restore", msg: "Restored to Inbox" },
+};
+
+async function doAction(act, ids) {
+  const a = ACT[act];
+  try {
+    await api("/api/items/bulk", "POST", { ids, action: a.bulk });
+  } catch (e) { toast("Failed: " + e.message, null, true); return; }
+  state.items = state.items.filter((i) => !ids.includes(i.id));
+  ids.forEach((id) => { state.checked.delete(id); state.open.delete(id); });
+  state.sig = ""; render(); loadStatus();
+  const undo = a.undoBulk ? async () => { await api("/api/items/bulk", "POST", { ids, action: a.undoBulk }); await loadItems(true); loadStatus(); } : null;
+  toast(`${a.msg}${ids.length > 1 ? ` (${ids.length})` : ""}`, undo);
+}
+
+$("#rows").addEventListener("click", async (e) => {
+  const t = e.target;
+  if (t.dataset.check) { t.checked ? state.checked.add(t.dataset.check) : state.checked.delete(t.dataset.check); updateBulk(); return; }
+  if (t.dataset.toggle) { const id = t.dataset.toggle; state.open.has(id) ? state.open.delete(id) : state.open.add(id); render(); return; }
+  const act = t.dataset.act, id = t.dataset.id;
+  if (!act) return;
+  if (act === "flag") {
+    const r = await api(`/api/items/${id}/flag`, "POST");
+    const it = state.items.find((x) => x.id === id); if (it) it.flag = r.flag; state.sig = ""; render(); return;
+  }
+  doAction(act, [id]);
+});
+$("#rows").addEventListener("focusout", async (e) => {
+  if (!e.target.dataset.note) return;
+  const id = e.target.dataset.note, it = state.items.find((x) => x.id === id);
+  if (it && it.note !== e.target.value) { try { await api(`/api/items/${id}/note`, "POST", { note: e.target.value }); it.note = e.target.value; toast("Note saved"); } catch (err) { toast("Note not saved: " + err.message, null, true); } }
+});
+$("#checkAll").addEventListener("change", (e) => { visible().forEach((i) => e.target.checked ? state.checked.add(i.id) : state.checked.delete(i.id)); render(); });
+$("#bulkMain").onclick = () => doAction({ inbox: "track", selected: "untrack", junk: "restore" }[state.tab], [...state.checked]);
+$("#bulkSecond").onclick = () => doAction("dismiss", [...state.checked]);
+
+document.querySelectorAll("th.sort").forEach((th) => th.onclick = () => {
+  const k = th.dataset.sort; state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : -1 }; render();
+});
+["#q", "#fType", "#fSource", "#fNew"].forEach((s) => $(s).addEventListener("input", render));
+$("#fScore").addEventListener("input", () => { $("#fScoreV").textContent = $("#fScore").value; render(); });
+addEventListener("keydown", (e) => { if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); $("#q").focus(); } });
+
+/* ---------- tabs ---------- */
+$("#tabs").addEventListener("click", (e) => {
+  const tab = e.target.closest(".tab"); if (!tab) return;
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === tab));
+  state.tab = tab.dataset.tab; state.checked.clear(); state.open.clear(); state.sig = ""; state.items = [];
+  const research = state.tab === "research";
+  $("#listView").style.display = research ? "none" : ""; $("#researchView").style.display = research ? "" : "none";
+  if (research) loadResearch(); else { render(); loadItems(true); }
+});
+
+async function loadResearch() {
+  const { links } = await api("/api/research");
+  $("#rlist").innerHTML = links.map((l) => {
+    const days = l.last_checked ? (Date.now() - new Date(l.last_checked)) / 864e5 : 999;
+    return `<div class="rlink"><span class="nm">${esc(l.name)}</span>
+      <span class="age ${days > 7 ? "old" : ""}">${l.last_checked ? "checked " + ago(l.last_checked) : "never checked"}</span>
+      <a class="btn small" href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener noreferrer" data-open="${l.idx}">Open ↗</a>
+      <button class="btn small" data-checked="${l.idx}">Mark checked</button></div>`;
+  }).join("");
+  const due = links.filter((l) => !l.last_checked || (Date.now() - new Date(l.last_checked)) / 864e5 > 7).length;
+  $("#n-research").textContent = due || "";
+  $("#n-research").style.display = due ? "" : "none";
+}
+$("#rlist").addEventListener("click", async (e) => {
+  const idx = e.target.dataset.checked ?? e.target.dataset.open;
+  if (idx === undefined) return;
+  await api(`/api/research/${idx}/checked`, "POST"); loadResearch();
+});
+$("#bm").href = `javascript:(function(){window.open('${location.origin}/capture?u='+encodeURIComponent(location.href)+'&t='+encodeURIComponent(document.title)+'&s='+encodeURIComponent(String(getSelection())),'fs','width=440,height=220')})()`;
+$("#bm").onclick = (e) => { e.preventDefault(); toast("Drag this button to your bookmarks bar instead of clicking it"); };
+
+/* ---------- add / refresh ---------- */
+$("#addBtn").onclick = () => { $("#addText").value = ""; $("#addDlg").showModal(); $("#addText").focus(); };
+$("#addCancel").onclick = () => $("#addDlg").close();
+$("#addOk").onclick = async () => {
+  try {
+    const r = await api("/api/manual", "POST", { text: $("#addText").value, hint: $("#addHint").value });
+    $("#addDlg").close(); toast(`${r.added} added${r.links - r.added ? `, ${r.links - r.added} already known (moved to Inbox)` : ""}`);
+    state.tab === "inbox" ? loadItems(true) : null; loadStatus();
+  } catch (e) { toast(e.message, null, true); }
+};
+$("#refreshBtn").onclick = async () => {
+  state.refreshing = true; loadStatus();
+  const before = state.status?.engine.last_finished;
+  await api("/api/refresh", "POST");
+  for (let i = 0; i < 150; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const st = await loadStatus();
+    if (!st.engine.running && st.engine.last_finished !== before) break;
+  }
+  state.refreshing = false;
+  const st = await loadStatus(); await loadItems(true);
+  toast(st.engine.last_new ? `${st.engine.last_new} new items fetched` : "Refreshed. Nothing new.");
+};
+$("#chips").onclick = () => $("#statusPanel").classList.toggle("open");
+
+/* ---------- boot ---------- */
+(async function () {
+  await loadStatus(); await loadItems(true); loadResearch();
+  setInterval(async () => { if (!state.refreshing && !document.hidden) { await loadStatus(); loadItems(false); } }, 30000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+# FounderSearch configuration. Safe to commit: secrets live in .env, not here.
+
+app:
+  host: 127.0.0.1
+  port: 8765
+  refresh_minutes: 30          # automatic refresh interval
+  first_run_lookback_days: 7   # how far back the very first fetch goes
+  overlap_minutes: 180         # re-read this much history each run so nothing is missed (duplicates are ignored)
+  backup_keep: 14              # daily database backups to keep
+
+# ---------------------------------------------------------------------------
+# What counts as a good signal. EDIT `profile` FIRST - it is the core of the filter.
+# ---------------------------------------------------------------------------
+triage:
+  threshold: 40                # score >= threshold goes to Inbox, below goes to Junk (Junk stays auditable)
+  batch_size: 20
+  batch_pause_seconds: 5       # pause between model calls (keeps free-tier rate limits happy)
+  max_chars: 700               # characters of each item sent to the model
+  max_attempts: 5              # LLM failures before the keyword scorer takes over for an item
+  min_chars: 15                # items with less text than this are junk
+  profile: |
+    I am an aspiring founder and independent developer. I build software, automation and AI tools.
+    I want two kinds of signal:
+    PROBLEM: a person describing a specific, real pain, complaint or unmet need - especially about a
+    product or service people already pay for (pricing, missing feature, bad support, switching away,
+    manual/repetitive work that someone would pay to avoid). Repeated or widely shared pain is better.
+    CLIENT: a person or company asking for a developer, freelancer, technical co-founder, tool or
+    automation, ideally showing intent to hire or pay.
+    Prefer B2B and prosumer software problems. Ignore consumer chit-chat, politics, memes, news,
+    self-promotion, job ads for full-time employees, and generic opinions with no concrete need.
+  blocklist:                   # case-insensitive substrings; matches go straight to Junk without a model call
+    - crypto airdrop
+    - forex signals
+    - buy followers
+    - onlyfans
+    - online casino
+    - dm me for
+    - whatsapp me
+  heuristics:                  # used when no LLM key is set, or the LLM is down
+    problem: ["alternative to", "switched from", "cancelled my subscription", "canceled my subscription",
+              "too expensive", "wish there was", "why is there no", "frustrated with", "pain point",
+              "is there a tool", "is there a service", "i would pay", "willing to pay", "manually every"]
+    client: ["looking for a developer", "need a developer", "looking for a freelancer", "hiring a freelancer",
+             "technical cofounder", "technical co-founder", "need help automating", "can anyone recommend",
+             "looking to hire", "who can build", "build me"]
+    paid: ["subscription", "pricing", "per month", "/mo", "paying", "paid plan", "budget", "$"]
+    negative: ["giveaway", "promo code", "affiliate", "airdrop", "my newsletter", "check out my"]
+
+# ---------------------------------------------------------------------------
+# Search phrases used by the API sources (Hacker News, Reddit API, GitHub).
+# Quotes are added automatically, so write the bare phrase.
+# ---------------------------------------------------------------------------
+queries:
+  problem:
+    - alternative to
+    - switched from
+    - cancelled my subscription
+    - canceled my subscription
+    - too expensive
+    - wish there was
+    - why is there no
+    - is there a tool
+    - is there a service
+    - frustrated with
+    - i would pay for
+    - willing to pay for
+    - manually every
+  client:
+    - looking for a developer
+    - need a developer
+    - looking for a freelancer
+    - hiring a freelancer
+    - looking for a technical cofounder
+    - looking for a technical co-founder
+    - need help automating
+    - looking to hire
+    - who can build
+
+sources:
+  f5bot_email:
+    enabled: true
+    sender: f5bot              # matched as a substring of the From header
+    folder: F5Bot              # Gmail label that holds the alerts (see SETUP.md)
+    max_emails_per_run: 300
+
+  hackernews:
+    enabled: true
+    interval_minutes: 30
+    max_pages: 5               # up to 100 hits per page, per phrase
+    pause_seconds: 0.3
+
+  stackexchange:               # reads every new question on these sites (no phrase search)
+    enabled: true
+    interval_minutes: 240
+    sites: [softwarerecs, webapps, freelancing]
+    max_pages: 3
+
+  github:                      # open-source issues asking for alternatives / missing tools
+    enabled: true
+    interval_minutes: 240
+    queries:
+      - wish there was
+      - looking for an alternative
+      - is there an alternative
+    max_pages: 2
+
+  reddit_api:                  # optional: needs a Reddit "script" app (see SETUP.md). Posts only.
+    enabled: false
+    interval_minutes: 30
+    subreddits: []             # empty = search all of Reddit
+    max_pages: 2
+
+  rss:                         # any RSS/Atom feed, e.g. Google Alerts (deliver to: RSS feed)
+    enabled: true
+    interval_minutes: 60
+    feeds: []
+    #  - name: Google Alerts - complaints
+    #    url: https://www.google.com/alerts/feeds/XXXX/YYYY
+    #    hint: problem        # problem | client | (blank)
+
+# ---------------------------------------------------------------------------
+# Manual research launcher: for places with no free API (Reddit, X, G2...).
+# ---------------------------------------------------------------------------
+research_links:
+  - name: Reddit - "alternative to" (past week)
+    url: https://www.reddit.com/search/?q=%22alternative+to%22&sort=new&t=week
+  - name: Reddit - "cancelled my subscription" (past week)
+    url: https://www.reddit.com/search/?q=%22cancelled+my+subscription%22&sort=new&t=week
+  - name: Reddit - "looking for a developer" (past week)
+    url: https://www.reddit.com/search/?q=%22looking+for+a+developer%22&sort=new&t=week
+  - name: X - "alternative to" (latest)
+    url: https://x.com/search?q=%22alternative%20to%22%20-filter%3Areplies&f=live
+  - name: X - "wish there was a tool" (latest)
+    url: https://x.com/search?q=%22wish%20there%20was%20a%20tool%22&f=live
+  - name: G2 reviews - "too expensive" (Google, past week)
+    url: https://www.google.com/search?q=site%3Ag2.com+%22what+do+you+dislike%22+%22too+expensive%22&tbs=qdr%3Aw
+  - name: Capterra reviews - "missing feature" (Google, past week)
+    url: https://www.google.com/search?q=site%3Acapterra.com+%22cons%22+%22missing%22+%22expensive%22&tbs=qdr%3Aw
+  - name: Product Hunt - "alternative to" (Google, past week)
+    url: https://www.google.com/search?q=site%3Aproducthunt.com+%22alternative+to%22&tbs=qdr%3Aw
